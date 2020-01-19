@@ -1,6 +1,6 @@
 Name: tpm2-tools
 Version: 3.0.4
-Release: 2%{?dist}
+Release: 3%{?dist}
 Summary: A TPM2.0 testing tool build upon TPM2.0-TSS
 
 License: BSD
@@ -56,6 +56,10 @@ tpm2-tools is a batch of testing tools for tpm2.0. It is based on tpm2-tss.
 %{_mandir}/man1/tpm2_*.1.gz
 
 %changelog
+* Thu Feb 21 2019 Jerry Snitselaar  <jsnitsel@redhat.com> - 3.0.4-3
+- Remove obsolete flag from tpm2_create examples
+resolves: rhbz#1570870
+
 * Thu Sep 06 2018 Jerry Snitselaar <jsnitsel@redhat.com> - 3.0.4-2
 - tpm2_create: Use better object attributes defaults for authentication
 resolves: rhbz#1627282
