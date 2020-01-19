@@ -1,0 +1,15 @@
+diff -ur tpm2.0-tools-1.1.0/src/syscontext.c tpm2.0-tools-1.1.0-new/src/syscontext.c
+--- tpm2.0-tools-1.1.0/src/syscontext.c	2016-11-04 07:13:32.000000000 -0700
++++ tpm2.0-tools-1.1.0-new/src/syscontext.c	2017-04-04 22:46:07.365948473 -0700
+@@ -59,8 +59,10 @@
+ 
+         if( rval == TSS2_RC_SUCCESS )
+             return sysContext;
+-        else
++        else {
++	    free(sysContext);
+             return 0;
++	}
+     }
+     else
+     {

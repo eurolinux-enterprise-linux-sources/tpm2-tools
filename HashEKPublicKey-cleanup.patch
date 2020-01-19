@@ -1,0 +1,97 @@
+diff -ur tpm2.0-tools-1.1.0/src/tpm2_getmanufec.cpp tpm2.0-tools-1.1.0-new/src/tpm2_getmanufec.cpp
+--- tpm2.0-tools-1.1.0/src/tpm2_getmanufec.cpp	2016-11-04 07:13:32.000000000 -0700
++++ tpm2.0-tools-1.1.0-new/src/tpm2_getmanufec.cpp	2017-04-05 15:46:04.144808304 -0700
+@@ -30,7 +30,7 @@
+ //**********************************************************************;
+ 
+ #include <stdarg.h>
+-
++#include <errno.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -264,27 +264,69 @@
+ 
+ unsigned char *HashEKPublicKey(void)
+ {
+-    printf("Calculating the SHA256 hash of the Endorsement Public Key\n");
+-    FILE *fp;
++    FILE *fp = NULL;
++    unsigned char *hash = NULL;
+     unsigned char EKpubKey[259];
+-    unsigned char *hash = (unsigned char*)malloc(SHA256_DIGEST_LENGTH);
++    int rc, is_success;
++    unsigned int i;
++    size_t read;
++
++    printf("Calculating the SHA256 hash of the Endorsement Public Key\n");
++
+     fp = fopen(outputFile, "rb");
+-    if (fp == NULL)
+-        printf("File Open Error\n");
+-    else 
+-    {
+-        fseek(fp, 0x66, 0);
+-        fread(EKpubKey, 1, 256, fp);
++    if (fp == NULL) {
++	    fprintf(stderr, "Could not open file: \"%s\"\n", outputFile);
++	    return NULL;
+     }
+-    fclose(fp);
+-    EKpubKey[256] = 0x01; EKpubKey[257] = 0x00; EKpubKey[258] = 0x01; //Exponent
++    rc = fseek(fp, 0x66, 0);
++    if (rc < 0) {
++	    fprintf(stderr, "Could not perform fseek: %s\n", strerror(errno));
++	    goto out;
++    }
++    read = fread(EKpubKey, 1, 256, fp);
++    if (read != 256) {
++	    fprintf(stderr, "Could not read whole file.\n");
++	    goto out;
++    }
++
++    hash = (unsigned char*)malloc(SHA256_DIGEST_LENGTH);
++    if (hash == NULL) {
++	    fprintf(stderr, "Memory allocation failed.\n");
++	    goto out;
++    }
++
++    EKpubKey[256] = 0x01;
++    EKpubKey[257] = 0x00;
++    EKpubKey[258] = 0x01; //Exponent
+     SHA256_CTX sha256;
+-    SHA256_Init(&sha256);
+-    SHA256_Update(&sha256, EKpubKey, sizeof(EKpubKey));
+-    SHA256_Final(hash, &sha256);
+-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
++    is_success = SHA256_Init(&sha256);
++    if (!is_success) {
++	    fprintf(stderr, "SHA256_Init failed\n");
++	    goto hash_out;
++    }
++
++    is_success = SHA256_Update(&sha256, EKpubKey, sizeof(EKpubKey));
++    if (!is_success) {
++	    fprintf(stderr, "SHA256_Update failed\n");
++	    goto hash_out;
++    }
++
++    is_success = SHA256_Final(hash, &sha256);
++    if (!is_success) {
++	    fprintf(stderr, "SHA256_Final failed\n");
++	    goto hash_out;
++    }
++
++    for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
+         printf("%02X", hash[i]);
+     printf("\n");
++    goto out;
++
++hash_out:
++    free(hash);
++    hash = NULL;
++out:
++    fclose(fp);
+     return hash;
+ }
+ 
