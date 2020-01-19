@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -317,13 +317,14 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
       {"policy-file",1,NULL,'L'},
       {"object-attributes", required_argument, NULL, 'A'},
       {"input-session-handle",1,NULL,'S'},
-      {0,0,0,0}
     };
 
     setbuf(stdout, NULL);
     setvbuf (stdout, NULL, _IONBF, BUFSIZ);
 
-    *opts = tpm2_options_new("A:P:K:g:G:C:L:S:H:", ARRAY_LEN(topts), topts, on_option, NULL);
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
+    *opts = tpm2_options_new("A:P:K:g:G:C:L:S:H:", ARRAY_LEN(topts), topts,
+            on_option, NULL, flags);
 
     return *opts != NULL;
 }

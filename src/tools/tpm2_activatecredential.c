@@ -303,8 +303,9 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
          {"passwdInHex",   no_argument,       NULL, 'X'},
     };
 
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
     *opts = tpm2_options_new("H:c:k:C:P:e:f:o:X", ARRAY_LEN(topts), topts,
-            on_option, NULL);
+            on_option, NULL, flags);
 
     return *opts != NULL;
 }
@@ -318,7 +319,7 @@ int tpm2_tool_onrun(TSS2_SYS_CONTEXT *sapi_context, tpm2_option_flags flags) {
             && (!ctx.flags.k || !ctx.flags.C) && !ctx.flags.f
             && !ctx.flags.o) {
         LOG_ERR("Expected options (H or c) and (k or C) and f and o");
-        return false;
+        return 1;
     }
 
     if (ctx.file.context) {

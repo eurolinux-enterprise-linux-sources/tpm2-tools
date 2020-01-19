@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -116,6 +116,13 @@ static bool nv_write(TSS2_SYS_CONTEXT *sapi_context) {
         return false;
     }
 
+    if (max_data_size > MAX_NV_BUFFER_SIZE) {
+        max_data_size = MAX_NV_BUFFER_SIZE;
+    }
+    else if (max_data_size == 0) {
+        max_data_size = NV_DEFAULT_BUFFER_SIZE;
+    }
+
     UINT16 data_offset = 0;
     UINT16 bytes_left = ctx.nv_buffer.t.size;
     while (bytes_left > 0) {
@@ -127,7 +134,7 @@ static bool nv_write(TSS2_SYS_CONTEXT *sapi_context) {
         LOG_INFO("The data(size=%d) to be written:", nv_write_data.t.size);
 
         memcpy(nv_write_data.t.buffer, &ctx.nv_buffer.t.buffer[data_offset],
-                ctx.nv_buffer.t.size);
+                nv_write_data.t.size);
 
         TPM_RC rval = TSS2_RETRY_EXP(Tss2_Sys_NV_Write(sapi_context, ctx.auth_handle,
                 ctx.nv_index, &sessions_data, &nv_write_data, ctx.offset + data_offset,
@@ -243,8 +250,9 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
         {"pcr-input-file", required_argument, NULL, 'F' },
     };
 
+    tpm2_option_flags empty_flags = tpm2_option_flags_init(0);
     *opts = tpm2_options_new("x:a:P:S:o:L:F:", ARRAY_LEN(topts), topts,
-            on_option, on_args);
+            on_option, on_args, empty_flags);
 
     ctx.input_file = stdin;
 

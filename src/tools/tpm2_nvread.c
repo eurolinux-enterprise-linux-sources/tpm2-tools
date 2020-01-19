@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -118,6 +118,13 @@ static bool nv_read(TSS2_SYS_CONTEXT *sapi_context, tpm2_option_flags flags) {
     rval = tpm2_util_nv_max_buffer_size(sapi_context, &max_data_size);
     if (rval != TPM_RC_SUCCESS) {
         return false;
+    }
+
+    if (max_data_size > MAX_NV_BUFFER_SIZE) {
+        max_data_size = MAX_NV_BUFFER_SIZE;
+    }
+    else if (max_data_size == 0) {
+        max_data_size = NV_DEFAULT_BUFFER_SIZE;
     }
 
     UINT8 *data_buffer = malloc(data_size);
@@ -261,8 +268,9 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
         {"pcr-input-file", required_argument, NULL, 'F' },
     };
 
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
     *opts = tpm2_options_new("x:a:f:s:o:P:S:L:F:", ARRAY_LEN(topts),
-            topts, on_option, NULL);
+            topts, on_option, NULL, flags);
 
     return *opts != NULL;
 }

@@ -1,20 +1,17 @@
 Name: tpm2-tools
-Version: 3.0.1
-Release: 1%{?dist}
+Version: 3.0.4
+Release: 2%{?dist}
 Summary: A TPM2.0 testing tool build upon TPM2.0-TSS
 
 License: BSD
-URL:     https://github.com/01org/tpm2-tools
-Source0: https://github.com/01org/tpm2-tools/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+URL:     https://github.com/tpm2-software/tpm2-tools
+Source0: https://github.com/tpm2-software/tpm2-tools/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 # work around lack of pandoc in RHEL7
 Patch0: add-man-pages.patch
 # Deal with RHEL rpmbuilds not being from git
 Patch1: autoconf-fixup.patch
-# Upstream commit ab1a2d468c4b2ac09a0ac651563653f36a73215f
-Patch2: 0001-tpm2_nvwrite-fix-buffer-overflow.patch
-# Submitted upstream: https://github.com/intel/tpm2-tools/pull/725
-Patch3: max-nv-buffer.patch
+Patch2: 0001-tpm2_create-Use-better-object-attributes-defaults-fo.patch
 
 BuildRequires: gcc-c++
 BuildRequires: libtool
@@ -59,6 +56,14 @@ tpm2-tools is a batch of testing tools for tpm2.0. It is based on tpm2-tss.
 %{_mandir}/man1/tpm2_*.1.gz
 
 %changelog
+* Thu Sep 06 2018 Jerry Snitselaar <jsnitsel@redhat.com> - 3.0.4-2
+- tpm2_create: Use better object attributes defaults for authentication
+resolves: rhbz#1627282
+
+* Fri Jun 15 2018 Jerry Snitselaar <jsnitsel@redhat.com> - 3.0.4-1
+- Rebase to 3.0.4 release
+resolves: rhbz#1515108
+
 * Wed Dec 13 2017 Jerry Snitselaar <jsnitsel@redhat.com> - 3.0.1-1
 - Rebase to 3.0.1 release
 resolves: rhbz#1463100

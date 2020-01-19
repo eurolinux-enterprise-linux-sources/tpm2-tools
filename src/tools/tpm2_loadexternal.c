@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -154,7 +154,9 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
       { "context",  required_argument, NULL, 'C'},
     };
 
-    *opts = tpm2_options_new("H:u:r:C:", ARRAY_LEN(topts), topts, on_option, NULL);
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
+    *opts = tpm2_options_new("H:u:r:C:", ARRAY_LEN(topts), topts,
+            on_option, NULL, flags);
 
     return *opts != NULL;
 }
@@ -165,7 +167,7 @@ int tpm2_tool_onrun(TSS2_SYS_CONTEXT *sapi_context, tpm2_option_flags flags) {
 
     if (!(ctx.flags.H && ctx.flags.u)) {
         LOG_ERR("Expected H and u options");
-        return false;
+        return 1;
     }
 
     bool result = load_external(sapi_context);

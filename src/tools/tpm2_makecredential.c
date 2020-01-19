@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -214,10 +214,11 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
       {"sec"     ,required_argument, NULL, 's'},
       {"name"    ,required_argument, NULL, 'n'},
       {"out-file" ,required_argument, NULL, 'o'},
-      {NULL      ,no_argument      , NULL, '\0'}
     };
 
-    *opts = tpm2_options_new("e:s:n:o:", ARRAY_LEN(topts), topts, on_option, NULL);
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
+    *opts = tpm2_options_new("e:s:n:o:", ARRAY_LEN(topts), topts,
+            on_option, NULL, flags);
 
     return *opts != NULL;
 }
@@ -228,7 +229,7 @@ int tpm2_tool_onrun(TSS2_SYS_CONTEXT *sapi_context, tpm2_option_flags flags) {
 
     if (!ctx.flags.e || !ctx.flags.n || !ctx.flags.o || !ctx.flags.s) {
         LOG_ERR("Expected options e, n, o and s");
-        return false;
+        return 1;
     }
 
     return make_credential_and_save(sapi_context) != true;

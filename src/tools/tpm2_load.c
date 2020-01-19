@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -144,8 +144,7 @@ static bool on_option(char key, char *value) {
         ctx.flags.u = 1;
         break;
     case 'r':
-        ctx.in_private.t.size = sizeof(ctx.in_private.t.buffer);
-        if(!files_load_bytes_from_path(value, ctx.in_private.t.buffer, &ctx.in_private.t.size)) {
+        if(!files_load_private(value, &ctx.in_private)) {
             return false;
         }
         ctx.flags.r = 1;
@@ -193,13 +192,14 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
       {"context",1,NULL,'C'},
       {"context-parent",1,NULL,'c'},
       {"input-session-handle",1,NULL,'S'},
-      {0,0,0,0}
     };
 
     setbuf(stdout, NULL);
     setvbuf (stdout, NULL, _IONBF, BUFSIZ);
 
-    *opts = tpm2_options_new("H:P:u:r:n:C:c:S:", ARRAY_LEN(topts), topts, on_option, NULL);
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
+    *opts = tpm2_options_new("H:P:u:r:n:C:c:S:", ARRAY_LEN(topts), topts,
+            on_option, NULL, flags);
 
     return *opts != NULL;
 }

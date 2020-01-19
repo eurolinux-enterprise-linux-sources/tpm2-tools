@@ -1,4 +1,21 @@
 ## Changelog
+### 3.0.4 - 2018-05-30
+  * Fix save and load for TPM2B_PRIVATE object.
+  * Use a default buffer size for tpm2_nv{read,write} if the TPM reports a 0 size.
+  * Fix --verbose and --version options crossover.
+  * Generate man pages from markdown and include them in the distribution tarball.
+  * Print usage summary if tools are executed with no options or man page can't be displayed.
+
+### 3.0.3 - 2017-15-18
+  * Tools that don't need a TPM to work no longer request
+    a TPM connection. Namely, tpm2_rc_decode
+  * Fix undefined references in libmarshal port.
+### 3.0.2 - 2017-12-18
+  * configure: enable code coverage option.
+  * build: enable silent rules options.
+  * Add system tests to dist tarball.
+  * tpm2_nv(read|write): fix buffer overflows.
+
 ### 3.0.1 - 2017-12-11
   * Makefile: add missing LICENSE and markdown files.
 ### 3.0 - 2017-12-08

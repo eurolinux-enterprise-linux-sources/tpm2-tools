@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,17 +39,25 @@
 
 #include <sapi/tpm20.h>
 
-typedef struct tpm2_options tpm2_options;
+#define tpm2_option_flags_init(x) { .all = x };
 
 typedef union tpm2_option_flags tpm2_option_flags;
 union tpm2_option_flags {
     struct {
-        UINT8 verbose : 1;
-        UINT8 quiet   : 1;
+        UINT8 verbose        : 1;
+        UINT8 quiet          : 1;
         UINT8 enable_errata  : 1;
+        UINT8 no_sapi        : 1;
+	UINT8 show_usage     : 1;
     };
     UINT8 all;
 };
+
+#define TPM2_OPTION_FLAG_VERBOSE       (1 << 0)
+#define TPM2_OPTION_FLAG_QUIET         (1 << 1)
+#define TPM2_OPTION_FLAG_ENABLE_ERRATA (1 << 2)
+#define TPM2_OPTION_NO_SAPI            (1 << 3)
+#define TPM2_OPTION_SHOW_USAGE         (1 << 4)
 
 /**
  * This function pointer defines the interface for tcti initialization.
@@ -97,6 +105,19 @@ typedef bool (*tpm2_option_handler)(char key, char *value);
  */
 typedef bool (*tpm2_arg_handler)(int argc, char **argv);
 
+struct tpm2_options {
+    struct {
+        tpm2_option_handler on_opt;
+        tpm2_arg_handler on_arg;
+    } callbacks;
+    tpm2_option_flags flags;
+    char *short_opts;
+    size_t len;
+    struct option long_opts[];
+};
+
+typedef struct tpm2_options tpm2_options;
+
 /**
  * The onstart() routine expects a return of NULL or a tpm2_options structure.
  * This routine initializes said object.
@@ -112,12 +133,17 @@ typedef bool (*tpm2_arg_handler)(int argc, char **argv);
  * @param on_arg
  *  An argument handling callback, which may be null if you don't wish
  *  to handle arguments.
+ * @flags
+ *  Flags for changing behavior, notably TPM2_OPTION_NO_SAPI is
+ *  respected.
  * @return
  *  NULL on failure or an initialized tpm2_options object.
  */
 tpm2_options *tpm2_options_new(const char *short_opts, size_t len,
         const struct option *long_opts, tpm2_option_handler on_opt,
-        tpm2_arg_handler on_arg);
+        tpm2_arg_handler on_arg, tpm2_option_flags flags);
+
+tpm2_option_flags *tpm2_options_get_flags(tpm2_options *opts);
 
 /**
  * Concatenates two tpm2_options objects, with src appended on
@@ -172,5 +198,15 @@ enum tpm2_option_code {
 tpm2_option_code tpm2_handle_options (int argc, char **argv, char **envp,
         tpm2_options *tool_opts, tpm2_option_flags *flags,
         TSS2_TCTI_CONTEXT **tcti);
+
+/**
+ * Print usage summary for a given tpm2 tool.
+ *
+ * @param command
+ *  The command to print its usage summary text.
+ * @param tool_opts
+ *  The tpm2_options array that contains the tool options to print as a summary.
+ */
+void tpm2_print_usage(const char *command, struct tpm2_options *tool_opts);
 
 #endif /* OPTIONS_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,9 @@
 
 #include <getopt.h>
 #include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "log.h"
 #include "tpm2_options.h"
@@ -76,19 +79,13 @@
 
 #define TPM2TOOLS_ENV_TCTI_NAME      "TPM2TOOLS_TCTI_NAME"
 
-struct tpm2_options {
-    struct {
-        tpm2_option_handler on_opt;
-        tpm2_arg_handler on_arg;
-    } callbacks;
-    char *short_opts;
-    size_t len;
-    struct option long_opts[];
-};
+tpm2_option_flags *tpm2_options_get_flags(tpm2_options *opts) {
+    return &opts->flags;
+}
 
 tpm2_options *tpm2_options_new(const char *short_opts, size_t len,
         const struct option *long_opts, tpm2_option_handler on_opt,
-        tpm2_arg_handler on_arg) {
+        tpm2_arg_handler on_arg, tpm2_option_flags flags) {
 
     tpm2_options *opts = calloc(1, sizeof(*opts) + (sizeof(*long_opts) * len));
     if (!opts) {
@@ -111,6 +108,7 @@ tpm2_options *tpm2_options_new(const char *short_opts, size_t len,
         return NULL;
     }
 
+    opts->flags = flags;
     opts->callbacks.on_opt = on_opt;
     opts->callbacks.on_arg = on_arg;
     opts->len = len;
@@ -130,6 +128,8 @@ bool tpm2_options_cat(tpm2_options **dest, tpm2_options *src) {
         LOG_ERR("oom");
         return false;
     }
+
+    d->flags.all |= src->flags.all;
 
     strcat(tmp_short, src->short_opts);
 
@@ -206,17 +206,31 @@ static char *tcti_get_opts(char *optstr) {
     return &split[1];
 }
 
-static void execute_man (char *prog_name, char *envp[]) {
+static bool execute_man(char *prog_name) {
 
-    char *manpage = basename(prog_name);
-    char *argv[] = {
-        "/man", // ARGv[0] needs to be something.
-        manpage,
-        NULL
-    };
-    execvpe ("man", argv, envp);
-    LOG_ERR("Could not execute \"man %s\" error: %s", manpage,
-            strerror(errno));
+    pid_t  pid;
+    int status;
+
+    if ((pid = fork()) < 0) {
+        LOG_ERR("Could not fork process to execute man, error: %s",
+                strerror(errno));
+        return false;
+    }
+
+    if (pid == 0) {
+        char *manpage = basename(prog_name);
+        execlp("man", "man", manpage, NULL);
+    } else {
+        if ((pid = waitpid(pid, &status, 0)) == -1) {
+            LOG_ERR("Waiting for child process that executes man failed, error: %s",
+                    strerror(errno));
+            return false;
+        }
+
+        return WEXITSTATUS(status) == 0;
+    }
+
+    return true;
 }
 
 static void show_version (const char *name) {
@@ -243,6 +257,30 @@ static void show_version (const char *name) {
             tcti_conf);
 }
 
+void tpm2_print_usage(const char *command, struct tpm2_options *tool_opts) {
+    unsigned int i;
+
+    printf("usage: %s%s%s\n", command,
+           tool_opts->callbacks.on_opt ? " [OPTIONS]" : "",
+           tool_opts->callbacks.on_arg ? " ARGUMENTS" : "");
+
+    if (tool_opts->callbacks.on_opt) {
+        for (i = 0; i < tool_opts->len; i++) {
+            struct option *opt = &tool_opts->long_opts[i];
+            printf("[ -%c | --%s%s]", opt->val, opt->name,
+                   opt->has_arg ? "=VALUE" : "");
+            if ((i + 1) % 4 == 0) {
+                printf("\n");
+            } else {
+                printf(" ");
+            }
+        }
+        if (i % 4 != 0) {
+            printf("\n");
+        }
+    }
+}
+
 tpm2_option_code tpm2_handle_options (int argc, char **argv, char **envp,
         tpm2_options *tool_opts, tpm2_option_flags *flags,
         TSS2_TCTI_CONTEXT **tcti) {
@@ -257,12 +295,12 @@ tpm2_option_code tpm2_handle_options (int argc, char **argv, char **envp,
      * grep -rn case\ \'[a-zA-Z]\' | awk '{print $3}' | sed s/\'//g | sed s/\://g | sort | uniq | less
      */
     struct option long_options [] = {
-        { "tcti",           required_argument, NULL, 'T' },
-        { "help",           no_argument,       NULL, 'h' },
-        { "verbose",        no_argument,       NULL, 'v' },
-        { "quiet",          no_argument,       NULL, 'Q' },
-        { "version",        no_argument,       NULL, 'V' },
-        { "enable-errata", no_argument,        NULL, 'Z' },
+        { "tcti",          required_argument, NULL, 'T' },
+        { "help",          no_argument,       NULL, 'h' },
+        { "verbose",       no_argument,       NULL, 'V' },
+        { "quiet",         no_argument,       NULL, 'Q' },
+        { "version",       no_argument,       NULL, 'v' },
+        { "enable-errata", no_argument,       NULL, 'Z' },
     };
 
     char *tcti_opts = NULL;
@@ -270,9 +308,9 @@ tpm2_option_code tpm2_handle_options (int argc, char **argv, char **envp,
     char *env_str = getenv (TPM2TOOLS_ENV_TCTI_NAME);
     tcti_name = env_str ? env_str : tcti_name;
 
-    /* handle any options */
+    tpm2_option_flags empty_flags = tpm2_option_flags_init(0);
     tpm2_options *opts = tpm2_options_new("T:hvVQZ",
-            ARRAY_LEN(long_options), long_options, NULL, NULL);
+            ARRAY_LEN(long_options), long_options, NULL, NULL, empty_flags);
     if (!opts) {
         return tpm2_option_code_err;
     }
@@ -297,7 +335,9 @@ tpm2_option_code tpm2_handle_options (int argc, char **argv, char **envp,
             tcti_opts = tcti_get_opts(optarg);
             break;
         case 'h':
-            execute_man(argv[0], envp);
+            if (!execute_man(argv[0]) && flags->show_usage) {
+                tpm2_print_usage(argv[0], tool_opts);
+            }
             result = false;
             goto out;
             break;
@@ -351,26 +391,29 @@ tpm2_option_code tpm2_handle_options (int argc, char **argv, char **envp,
         }
 	}
 
-    size_t i;
-    bool found = false;
-    for(i=0; i < ARRAY_LEN(tcti_map_table); i++) {
+    if (!flags->no_sapi) {
 
-        char *name = tcti_map_table[i].name;
-        tcti_init init = tcti_map_table[i].init;
-        if (!strcmp(tcti_name, name)) {
-            found = true;
-            *tcti = init(tcti_opts);
-            if (!*tcti) {
-                result = false;
-                goto out;
+        size_t i;
+        bool found = false;
+        for(i=0; i < ARRAY_LEN(tcti_map_table); i++) {
+
+            char *name = tcti_map_table[i].name;
+            tcti_init init = tcti_map_table[i].init;
+            if (!strcmp(tcti_name, name)) {
+                found = true;
+                *tcti = init(tcti_opts);
+                if (!*tcti) {
+                    result = false;
+                    goto out;
+                }
             }
         }
-    }
 
-    if (!found) {
-        LOG_ERR("Unknown tcti, got: \"%s\"", tcti_name);
-        result = false;
-        goto out;
+        if (!found) {
+            LOG_ERR("Unknown tcti, got: \"%s\"", tcti_name);
+            result = false;
+            goto out;
+        }
     }
 
     rc = tpm2_option_code_continue;

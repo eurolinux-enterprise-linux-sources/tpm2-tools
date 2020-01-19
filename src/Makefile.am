@@ -29,6 +29,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 #;**********************************************************************;
+@CODE_COVERAGE_RULES@
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -40,9 +41,10 @@ LIBMARSHAL_CFLAGS = \
 
 AM_CFLAGS := \
     $(INCLUDE_DIRS) $(EXTRA_CFLAGS) $(SAPI_CFLAGS) $(TCTI_SOCK_CFLAGS) \
-    $(TCTI_TABRMD_CFLAGS) $(TCTI_DEV_CFLAGS) $(CRYPTO_CFLAGS) $(LIBMARSHAL_CFLAGS)
+    $(TCTI_TABRMD_CFLAGS) $(TCTI_DEV_CFLAGS) $(CRYPTO_CFLAGS) $(LIBMARSHAL_CFLAGS) \
+    $(CODE_COVERAGE_CFLAGS)
 
-AM_LDFLAGS   := $(EXTRA_LDFLAGS)
+AM_LDFLAGS   := $(EXTRA_LDFLAGS) $(CODE_COVERAGE_LIBS)
 
 LDADD = \
     $(LIB_COMMON) $(SAPI_LIBS) $(TCTI_SOCK_LIBS) $(TCTI_TABRMD_LIBS) \
@@ -268,7 +270,8 @@ EXTRA_DIST = $(top_srcdir)/man \
 	     LICENSE \
 	     MAINTAINERS.md \
 	     README.md \
-	     RELEASE.md
+	     RELEASE.md \
+	     test/system
 
 if HAVE_PANDOC
     man1_MANS := \
@@ -311,6 +314,15 @@ if HAVE_PANDOC
     man/man1/tpm2_takeownership.1 \
     man/man1/tpm2_unseal.1 \
     man/man1/tpm2_verifysignature.1
+
+# If pandoc is enabled, we want to generate the manpages for the dist tarball
+EXTRA_DIST += $(man1_MANS)
+else
+# If pandoc is not enabled, we want to complain that you need pandoc for make dist,
+# so hook the target and complain.
+dist-hook:
+	@(>&2 echo "You do not have pandoc, a requirement for the distribution of manpages")
+	@exit 1
 endif
 
 MARKDOWN_COMMON_DEPS = \
@@ -326,8 +338,8 @@ MARKDOWN_COMMON_DEPS = \
 	man/common/tcti.md
 
 man/man1/%.1 : man/%.1.md $(MARKDOWN_COMMON_DEPS)
-	rm -f $@
-	mkdir -p man/man1
+	$(AM_V_GEN)rm -f $@ && \
+	mkdir -p man/man1 && \
 	sed -e '/\[common options\]/r man/common/options.md' \
 	    -e '/\[common options\]/d' \
 	    -e '/\[common tcti options\]/r man/common/tcti.md' \

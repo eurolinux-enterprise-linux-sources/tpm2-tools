@@ -4,7 +4,7 @@ diff -urN tpm2-tools-3.0.1/configure.ac tpm2-tools-3.0.1-new/configure.ac
 @@ -1,5 +1,4 @@
 -AC_INIT([tpm2-tools],
 -    [m4_esyscmd_s([git describe --tags --always --dirty])])
-+AC_INIT([tpm2-tools],[3.0.1])
++AC_INIT([tpm2-tools],[3.0.4])
  AC_CONFIG_MACRO_DIR([m4])
  AC_PROG_CC
  LT_INIT

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #;**********************************************************************;
 #
 # Copyright (c) 2017, Intel Corporation
@@ -29,10 +30,52 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 #;**********************************************************************;
-#!/usr/bin/env bash
 
 # all command failures are fatal
 set -e
+
+WORKSPACE=`dirname $TRAVIS_BUILD_DIR`
+
+echo "Workspace: $WORKSPACE"
+
+source $TRAVIS_BUILD_DIR/.ci/download-deps.sh
+
+get_deps "$WORKSPACE"
+
+export LD_LIBRARY_PATH=/usr/local/lib/
+export PATH=$PATH:/root/.local/bin/
+
+echo "echo changing to $TRAVIS_BUILD_DIR"
+# Change to the the travis build dir
+cd $TRAVIS_BUILD_DIR
+
+echo "starting dbus"
+mkdir -p /var/run/dbus
+if [ -e /var/run/dbus/pid ]; then
+  rm /var/run/dbus/pid
+fi
+
+# start dbus
+dbus-daemon --fork --system
+echo "dbus started"
+
+# let dbus have time to start up
+sleep 5
+
+echo "starting tpm server"
+# start the tpm server
+/ibmtpm974/src/tpm_server &
+echo "tpm server started"
+
+# start tpm2-abrmd
+
+# let the tpm simulator have time to start up before abrmd
+# tries to connect.
+sleep 5
+
+echo "starting abrmd server"
+tpm2-abrmd --tcti=socket &
+echo "started abrmd server"
 
 if [ -d build ]; then
   rm -rf build
@@ -72,6 +115,7 @@ if [[ "$CC" == clang* ]]; then
 else #GCC
   export ENABLE_COVERAGE=true
   echo "Exported ENABLE_COVERAGE=true"
+  config_flags="--disable-hardening --enable-code-coverage"
 fi
 
 # Bootstrap in the tpm2.0-tss tools directory
@@ -91,49 +135,19 @@ fi
 mkdir ./build
 pushd ./build
 
-# Test building without tcti tabrmd
-../configure --enable-unit --without-tcti-tabrmd $config_flags
-
-make -j$(nproc)
-make -j$(nproc) check
-make -j$(nproc) clean
-
-# Test building without tcti socket
-../configure --enable-unit --without-tcti-socket $config_flags
-make -j$(nproc)
-make -j$(nproc) check
-make -j$(nproc) clean
-
-# Test building wihtout tcti device
-../configure --enable-unit --without-tcti-device $config_flags
-make -j$(nproc)
-make -j$(nproc) check
-make -j$(nproc) clean
-
-# Build all device TCTIs
 ../configure --enable-unit $config_flags
 make -j$(nproc)
 make -j$(nproc) check
 
-if [ "$ENABLE_COVERAGE" == "true" ]; then
-  # clean before build with coverage
-  make clean
-
-  # Build all device TCTIs with gcov
-  ../configure --disable-hardening --enable-code-coverage
-  make -j$(nproc)
-  make -j$(nproc) check
-fi
-# no clean here, keep artifacts for system testing
-
-# Move out of build back to the tpm2-tools directory
 popd
 
 # Switch over to the test directory
 pushd ./test/system
 
 # Run the tests on ALL device TCTIs configuration
-PATH=$(pwd)/../../build/tools:${PATH} ./test.sh --plain
+
+TOOLS="$(pwd)/../../build/tools"
+PATH=$TOOLS:$TOOLS/aux:$PATH ./test.sh -p
 
 # done go back to tpm2-tools directory
 popd

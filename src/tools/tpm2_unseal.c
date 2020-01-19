@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -200,11 +200,11 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
       {"input-session-handle", required_argument, NULL, 'S'},
       {"set-list",             required_argument, NULL, 'L' },
       {"pcr-input-file",       required_argument, NULL, 'F' },
-      {NULL,                   no_argument,       NULL, '\0'}
     };
 
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
     *opts = tpm2_options_new("H:P:o:c:S:L:F:", ARRAY_LEN(topts), topts,
-            on_option, NULL);
+            on_option, NULL, flags);
 
     return *opts != NULL;
 }

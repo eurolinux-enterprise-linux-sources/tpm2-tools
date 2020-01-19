@@ -1,5 +1,5 @@
 //**********************************************************************;
-// Copyright (c) 2015, Intel Corporation
+// Copyright (c) 2015-2018, Intel Corporation
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -220,7 +220,7 @@ int create(TSS2_SYS_CONTEXT *sapi_context)
     }
 
     if (ctx.flags.O) {
-        bool res = files_save_bytes_to_file(ctx.opr_path, outPrivate.t.buffer, outPrivate.t.size);
+        bool res = files_save_private(&outPrivate, ctx.opr_path);
         if (!res) {
             return -4;
         }
@@ -343,13 +343,14 @@ bool tpm2_tool_onstart(tpm2_options **opts) {
       {"privfile",1,NULL,'r'},
       {"context-parent",1,NULL,'c'},
       {"input-session-handle",1,NULL,'S'},
-      {0,0,0,0}
     };
 
     setbuf(stdout, NULL);
     setvbuf (stdout, NULL, _IONBF, BUFSIZ);
 
-    *opts = tpm2_options_new("H:P:K:g:G:A:I:L:u:r:c:S:", ARRAY_LEN(topts), topts, on_option, NULL);
+    tpm2_option_flags flags = tpm2_option_flags_init(TPM2_OPTION_SHOW_USAGE);
+    *opts = tpm2_options_new("H:P:K:g:G:A:I:L:u:r:c:S:", ARRAY_LEN(topts),
+            topts, on_option, NULL, flags);
 
     return *opts != NULL;
 }

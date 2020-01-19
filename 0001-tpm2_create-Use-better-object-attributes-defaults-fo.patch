@@ -1,0 +1,114 @@
+From 1a541fbef647cd495e1c9fb9667d0f0525ff5fd7 Mon Sep 17 00:00:00 2001
+From: Javier Martinez Canillas <javierm@redhat.com>
+Date: Mon, 30 Jul 2018 11:40:19 +0200
+Subject: [PATCH] tpm2_create: Use better object attributes defaults for
+ authentication
+
+The tpm2_create tool allows to define a policy session or a password for
+authentication. By default no policy session is used and the password is
+empty, which means that this empty password is used for authentication.
+
+So the default object attribute flag userWithAuth is set in order to use
+the empty password. This isn't a good default though if a policy is set,
+since in this case the policy session has to be used for authentication
+instead of an empty password.
+
+If a policy is defined, the userWithAuth bit has to be clear unless the
+user defines a password so in that case authentication would happen only
+using the policy session or the defined password.
+
+Also add these cases in the integration test to detect regressions.
+
+Fixes: #1123
+
+Signed-off-by: Javier Martinez Canillas <javierm@redhat.com>
+---
+ test/system/test_tpm2_unseal.sh | 51 +++++++++++++++++++++++++++++++++
+ tools/tpm2_create.c             |  4 +++
+ 2 files changed, 55 insertions(+)
+
+diff --git a/test/system/test_tpm2_unseal.sh b/test/system/test_tpm2_unseal.sh
+index 1015a43..abfffce 100755
+--- a/test/system/test_tpm2_unseal.sh
++++ b/test/system/test_tpm2_unseal.sh
+@@ -109,4 +109,55 @@ unsealed=`tpm2_unseal -c $file_unseal_key_ctx -L ${alg_pcr_policy}:${pcr_ids} -F
+ 
+ test "$unsealed" == "$secret"
+ 
++# Test that unseal fails if a PCR policy isn't provided
++
++trap - ERR
++
++tpm2_unseal -c $file_unseal_key_ctx 2> /dev/null
++if [ $? != 1 ]; then
++  echo "tpm2_unseal didn't fail without a PCR policy!"
++  exit 1
++fi
++
++# Test that unseal fails if PCR state isn't the same as the defined PCR policy
++
++pcr_extend=$(echo $pcr_ids | cut -d ',' -f1)
++
++tpm2_pcrextend $pcr_extend:sha1=6c10289a8da7f774cf67bd2fc8502cd4b585346a
++
++tpm2_unseal -c $file_unseal_key_ctx -L ${alg_pcr_policy}:${pcr_ids} -F $file_pcr_value 2> /dev/null
++if [ $? != 1 ]; then
++  echo "tpm2_unseal didn't fail with a PCR state different than the policy!"
++  exit 1
++fi
++
++# Test that the object can be unsealed without a policy but a password
++
++trap onerror ERR
++
++rm $file_unseal_key_pub $file_unseal_key_priv $file_unseal_key_name
++
++tpm2_pcrlist -Q -L ${alg_pcr_policy}:${pcr_ids} -o $file_pcr_value
++
++tpm2_createpolicy -Q -P -L ${alg_pcr_policy}:${pcr_ids} -F $file_pcr_value -f $file_policy
++
++tpm2_create -Q -g $alg_create_obj -G $alg_create_key -u $file_unseal_key_pub -r $file_unseal_key_priv -I- -c $file_primary_key_ctx -L $file_policy -K secretpass\
++  -A 'sign|fixedtpm|fixedparent|sensitivedataorigin' <<< $secret
++
++tpm2_load -Q -c $file_primary_key_ctx  -u $file_unseal_key_pub  -r $file_unseal_key_priv -n $file_unseal_key_name -C $file_unseal_key_ctx
++
++unsealed=`tpm2_unseal -c $file_unseal_key_ctx -P secretpass`
++
++test "$unsealed" == "$secret"
++
++# Test that unseal fails when using a wrong password
++
++trap - ERR
++
++tpm2_unseal -c $file_unseal_key_ctx -P wrongpass 2> /dev/null
++if [ $? != 1 ]; then
++  echo "tpm2_unseal didn't fail when using a wrong object password!"
++  exit 1
++fi
++
+ exit 0
+diff --git a/tools/tpm2_create.c b/tools/tpm2_create.c
+index 41d7b42..15166fc 100644
+--- a/tools/tpm2_create.c
++++ b/tools/tpm2_create.c
+@@ -256,6 +256,7 @@ static bool on_option(char key, char *value) {
+             return false;
+         }
+         ctx.flags.K = 1;
++        ctx.in_public.t.publicArea.objectAttributes.userWithAuth = 1;
+         break;
+     case 'g':
+         ctx.nameAlg = tpm2_alg_util_from_optarg(value);
+@@ -294,6 +295,9 @@ static bool on_option(char key, char *value) {
+             return false;
+         }
+         ctx.flags.L = 1;
++        if (!ctx.flags.K) {
++             ctx.in_public.t.publicArea.objectAttributes.userWithAuth = 0;
++        }
+         break;
+     case 'S':
+         if (!tpm2_util_string_to_uint32(value, &ctx.session_data.sessionHandle)) {
+-- 
+2.17.0
+
