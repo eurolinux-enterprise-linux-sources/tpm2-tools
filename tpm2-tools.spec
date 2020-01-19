@@ -1,56 +1,48 @@
 Name: tpm2-tools
-Version: 1.1.0 
-Release: 7%{?dist}
+Version: 3.0.1
+Release: 1%{?dist}
 Summary: A TPM2.0 testing tool build upon TPM2.0-TSS
 
-%global pkg_prefix tpm2.0-tools
-
 License: BSD
-URL:     https://github.com/01org/tpm2.0-tools
-Source0: https://github.com/01org/tpm2.0-tools/archive/v%{version}.tar.gz#/%{pkg_prefix}-%{version}.tar.gz
-# RHEL only. code no longer exists upstream
-Patch0000: fix-resource-leak-InitSysContext.patch
-# RHEL only. Upstream commit 2b6bb441 contains this and more.
-# Added code to clean up hash malloc in err paths
-Patch0001: HashEKPublicKey-cleanup.patch
-# Submitted upstream. https://github.com/01org/tpm2.0-tools/pull/272
-# Slightly different for RHEL due to code differences
-Patch0002: tpm2_getmanuc-null-check.patch
-# Fix is part of upstream commit 2b6bb441.
-Patch0003: tpm2_getmanufec-leak-clean.patch
-# Similar to part of upstream commit 2b6bb441.
-Patch0004: ekservaddr.patch
-# RHEL only. code completely changed upstream
-Patch0005: void-return-listpcrs.patch
-# Upstream commit 778bd1a0a1b5
-Patch0006: ret-on-success-rc-decode.patch
-# Based on part of upstream commit 2b6bb441.
-Patch0007: tpm2-getmanufec-null-ptr-checks.patch
-# similar fix submitted upstream https://github.com/01org/tpm2.0-tools/pull/284
-Patch0008: tpm2-listpcrs-select.patch
+URL:     https://github.com/01org/tpm2-tools
+Source0: https://github.com/01org/tpm2-tools/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
-BuildRequires: gcc
+# work around lack of pandoc in RHEL7
+Patch0: add-man-pages.patch
+# Deal with RHEL rpmbuilds not being from git
+Patch1: autoconf-fixup.patch
+# Upstream commit ab1a2d468c4b2ac09a0ac651563653f36a73215f
+Patch2: 0001-tpm2_nvwrite-fix-buffer-overflow.patch
+# Submitted upstream: https://github.com/intel/tpm2-tools/pull/725
+Patch3: max-nv-buffer.patch
+
 BuildRequires: gcc-c++
 BuildRequires: libtool
+BuildRequires: autoconf-archive
+BuildRequires: pkgconfig(cmocka)
 BuildRequires: pkgconfig(libcurl)
 BuildRequires: pkgconfig(openssl)
 # tpm2-tss-devel provides sapi/tcti-device/tcti-socket
 BuildRequires: pkgconfig(sapi)
 BuildRequires: pkgconfig(tcti-device)
 BuildRequires: pkgconfig(tcti-socket)
+BuildRequires: pkgconfig(tcti-tabrmd)
 
 # this package does not support big endian arch so far,
 # and has been verified only on Intel platforms.
 ExclusiveArch: %{ix86} x86_64
 
 # tpm2-tools is heavily depending on TPM2.0-TSS project, matched tss is required
-Requires: tpm2-tss%{?_isa} >= 1.0-2%{?dist} 
+Requires: tpm2-tss%{?_isa} >= 1.3.0-1%{?dist}
+
+# tpm2-tools project changed the install path for binaries and man page section
+Obsoletes: tpm2-tools <= 2.1.0-2
 
 %description
 tpm2-tools is a batch of testing tools for tpm2.0. It is based on tpm2-tss.
 
 %prep
-%autosetup -p1 -n %{pkg_prefix}-%{version}
+%autosetup -p1 -n %{name}-%{version}
 ./bootstrap
 
 %build
@@ -61,11 +53,24 @@ tpm2-tools is a batch of testing tools for tpm2.0. It is based on tpm2-tss.
 %make_install
 
 %files
-%doc README.md CHANGELOG 
+%doc README.md CHANGELOG.md
 %license LICENSE
-%{_sbindir}/tpm2_*
+%{_bindir}/tpm2_*
+%{_mandir}/man1/tpm2_*.1.gz
 
 %changelog
+* Wed Dec 13 2017 Jerry Snitselaar <jsnitsel@redhat.com> - 3.0.1-1
+- Rebase to 3.0.1 release
+resolves: rhbz#1463100
+
+* Wed Oct 18 2017 Jerry Snitselaar <jsnitsel@redhat.com> - 2.1.0-2
+- Fix potential memory leak
+resolves: rhbz#1463100
+
+* Wed Aug 30 2017 Jerry Snitselaar <jsnitsel@redhat.com> - 2.1.0-1
+- Rebase to 2.1.0 release
+resolves: rhbz#1463100
+
 * Mon May 15 2017 Jerry Snitselaar <jsnitsel@redhat.com> - 1.1.0-7
 - decide pcrs to read based off data returned from TPM2_GetCapability
 resolves: rhbz#1449276

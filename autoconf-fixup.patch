@@ -1,0 +1,10 @@
+diff -urN tpm2-tools-3.0.1/configure.ac tpm2-tools-3.0.1-new/configure.ac
+--- tpm2-tools-3.0.1/configure.ac	2017-12-08 11:19:47.000000000 -0700
++++ tpm2-tools-3.0.1-new/configure.ac	2017-12-15 10:01:43.128340107 -0700
+@@ -1,5 +1,4 @@
+-AC_INIT([tpm2-tools],
+-    [m4_esyscmd_s([git describe --tags --always --dirty])])
++AC_INIT([tpm2-tools],[3.0.1])
+ AC_CONFIG_MACRO_DIR([m4])
+ AC_PROG_CC
+ LT_INIT
